@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f8a62">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Skaner KW">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Skaner KW</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one narrow column for a phone — scan button, review cards, payout table, export bar. Accent taken from the green of the KW form. */
+:root{
+  --bg:#f3f6f4; --surface:#ffffff; --fg:#17231d; --muted:#5d6e66; --line:#d5e0da;
+  --accent:#1f8a62; --accent-fg:#ffffff; --accent-soft:#e1f1e9;
+  --band:#eaf2fb; --warn:#a86400; --warn-soft:#fdf0d8; --bad:#b3261e; --bad-soft:#fbe4e2;
+  --font:"Onest",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1613; --surface:#18221d; --fg:#e4ede8; --muted:#93a59c; --line:#2b3a33;
+  --accent:#3dbb8a; --accent-fg:#06140e; --accent-soft:#183a2c;
+  --band:#1b2733; --warn:#f0b04a; --warn-soft:#3a2c12; --bad:#f2867d; --bad-soft:#3d1c1a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1613; --surface:#18221d; --fg:#e4ede8; --muted:#93a59c; --line:#2b3a33;
+  --accent:#3dbb8a; --accent-fg:#06140e; --accent-soft:#183a2c;
+  --band:#1b2733; --warn:#f0b04a; --warn-soft:#3a2c12; --bad:#f2867d; --bad-soft:#3d1c1a; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{padding-top:env(safe-area-inset-top,0px)}
+body{margin:0}
+img{max-width:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.45}
+.wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:18px 120px;display:flex;flex-direction:column;gap:18px}
+header{display:flex;align-items:center;gap:12px}
+.badge{background:var(--accent);color:var(--accent-fg);font-weight:700;font-size:15px;padding:6px 9px;border-radius:4px;letter-spacing:.04em}
+h1{font-size:21px;margin:0;font-weight:700;text-wrap:balance}
+header p{margin:0;color:var(--muted);font-size:13px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0;font-weight:600}
+button,.btn{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:10px 14px;font-weight:500}
+button:focus-visible,input:focus-visible,textarea:focus-visible,label.scan:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600}
+button.danger{color:var(--bad);border-color:var(--bad);background:transparent;font-weight:600}
+button.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:6px 8px}
+button:disabled{opacity:.5;cursor:default}
+label.scan{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:var(--accent);color:var(--accent-fg);border-radius:16px;padding:22px 16px;font-weight:700;font-size:18px;cursor:pointer;text-align:center}
+label.scan small{font-weight:400;font-size:13px;opacity:.85}
+label.scan input{position:absolute;opacity:0;width:1px;height:1px}
+.scanrow{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+.scanrow.off{opacity:.5;pointer-events:none}
+label.scan.alt{background:var(--surface);color:var(--fg);border:1px solid var(--line);font-size:16px}
+.notice{background:var(--warn-soft);color:var(--fg);border-radius:10px;padding:10px 12px;font-size:14px}
+.section{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;grid-template-columns:84px 1fr;gap:12px}
+.card.warn{border-color:var(--warn);background:linear-gradient(var(--warn-soft),var(--warn-soft)) top/100% 4px no-repeat,var(--surface)}
+.card img{width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in}
+.card .body{min-width:0;display:flex;flex-direction:column;gap:8px}
+.field{display:flex;flex-direction:column;gap:3px}
+.field span{font-size:12px;color:var(--muted)}
+input[type=text],input[type=password],input[type=number],input[type=date],textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.flags{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--fg)}
+.chip.w{background:var(--warn-soft);color:var(--warn);font-weight:600}
+.chip.kw{background:var(--accent);color:var(--accent-fg);font-weight:700;margin-left:4px}
+.chip.b{background:var(--bad-soft);color:var(--bad);font-weight:600}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.status{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
+.spin{width:18px;height:18px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 1s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+.tablebox{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{background:#5b9bd5;color:#fff;text-align:left;font-weight:600;padding:8px 10px;font-size:14px}
+th.num,td.num{text-align:right;white-space:nowrap}
+td{padding:8px 10px;border-top:1px solid var(--line);font-size:14px}
+tbody tr:nth-child(odd) td{background:var(--band)}
+tbody tr{cursor:pointer}
+tfoot td{font-weight:700;border-top:3px double var(--fg);font-size:15px}
+td.x{width:34px;padding:0 4px;text-align:center}
+.empty{padding:22px 14px;color:var(--muted);text-align:center;font-size:14px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
+.bar .in{max-width:560px;margin:0 auto;display:flex;gap:8px;align-items:center}
+.bar .in button.primary{flex:1;padding:13px}
+.bar .sum{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+details{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+details summary{cursor:pointer;font-weight:600}
+details .inner{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+details textarea{min-height:220px;text-transform:uppercase}
+.check{display:flex;align-items:center;gap:8px;font-size:14px}
+.muted{color:var(--muted);font-size:13px}
+.confirm{background:var(--bad-soft);border-radius:10px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.zoom{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.zoom img{max-width:100%;max-height:100%;border-radius:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:10px;font-size:14px;z-index:11;max-width:calc(100% - 32px)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <span class="badge">KW</span>
+    <div><h1>Skaner KW</h1><p>Фото бланка «Dowód wypłaty» → рядок у таблиці → Excel</p></div>
+  </header>
+
+  <div id="noAi" class="notice" hidden>Щоб програма читала фото, вставте ключ Gemini в «Налаштуваннях» унизу сторінки. Без ключа рядки можна додавати вручну.</div>
+
+  <div class="scanrow" id="scanLabel">
+    <label class="scan"><input type="file" id="photo" accept="image/*" capture="environment">Сфотографувати бланк<small>відкриє камеру</small></label>
+    <label class="scan alt"><input type="file" id="photo2" accept="image/*" multiple>З галереї<small>можна кілька фото</small></label>
+  </div>
+
+  <div class="section" id="reviewSec" hidden>
+    <h2>Перевірте перед додаванням</h2>
+    <div id="review" class="section"></div>
+  </div>
+
+  <div class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <h2>Таблиця виплат</h2>
+      <button class="ghost" id="addManual" type="button">+ Додати вручну</button>
+    </div>
+    <div class="tablebox"><table>
+      <thead><tr><th>Nazwisko Imię</th><th class="num dcol" hidden>Data</th><th class="num">Kwota</th><th class="x"></th></tr></thead>
+      <tbody id="tbody"></tbody>
+      <tfoot><tr><td></td><td class="dcol" hidden></td><td class="num" id="total">0,00 zł</td><td></td></tr></tfoot>
+    </table><div class="empty" id="empty">Таблиця порожня. Сфотографуйте перший бланк, і рядок з'явиться тут.</div></div>
+    <label class="check"><input type="checkbox" id="withDate"> Додати колонку з датою в Excel</label>
+  </div>
+
+  <details id="empBox">
+    <summary>Список працівників (<span id="empCount">0</span>)</summary>
+    <div class="inner">
+      <p class="muted" style="margin:0">По одному на рядок, у форматі NAZWISKO IMIĘ. Розпізнане ім'я автоматично виправляється на найближче з цього списку.</p>
+      <textarea id="empText" spellcheck="false"></textarea>
+      <div class="actions"><button class="primary" type="button" id="empSave">Зберегти список</button></div>
+    </div>
+  </details>
+
+  <details id="setBox">
+    <summary>Налаштування</summary>
+    <div class="inner">
+      <label class="field"><span>Ключ Gemini API (з aistudio.google.com/apikey)</span><input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="AIza..."></label>
+      <label class="field"><span>Модель Gemini</span><input type="text" id="model" spellcheck="false" placeholder="gemini-3.8-flash"></label>
+      <div class="actions"><button class="primary" type="button" id="setSave">Зберегти</button><button type="button" id="setTest">Перевірити ключ</button></div>
+      <p class="muted" style="margin:0">Ключ зберігається лише на цьому телефоні. Фото надсилаються тільки в Google Gemini для розпізнавання. Якщо модель перестане працювати, програма сама спробує новішу або іншу з моделей Flash.</p>
+      <p class="muted" style="margin:0">Таблиця й список працівників теж зберігаються лише в цьому браузері на цьому телефоні.</p>
+    </div>
+  </details>
+</div>
+
+<div class="bar">
+<div class="confirm in" id="clearConfirm" hidden style="margin-bottom:8px">
+  <span id="clearText" style="flex:1;min-width:0">Видалити всі рядки?</span>
+  <button type="button" id="cYes" class="primary" style="background:var(--bad);border-color:var(--bad)">Так, вичистити</button>
+  <button type="button" id="cNo">Скасувати</button>
+</div>
+<div class="in">
+  <button type="button" id="clearBtn" class="danger">Вичистити</button>
+  <span class="sum" id="barSum">0,00 zł</span>
+  <button class="primary" type="button" id="exportBtn">Завантажити Excel + PDF</button>
+</div></div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const state={rows:[],employees:[],withDate:false};
+const DEFAULT_EMPLOYEES=["BUGALIYA NEMI CHAND","MAHATO AMAR BAHADUR","MANANDHAR SUNIL","TAMANG NORBU","DUBOVOI OLEKSANDR","RUBANENKO RUSTAM","SAMADOV MUSA","CORREDOR CASTANEDA JOHN JAIRO","MASIMOV SARKHAN","SEIKH ASRAFUL","THANKACHAN NITHIN","MEMBRENO LOPEZ ROBERTO ENRIQUE"];
+const DEFAULT_MODEL='gemini-3.8-flash';
+const FALLBACK_MODELS=['gemini-3.8-flash','gemini-3.5-flash','gemini-flash-latest','gemini-2.5-flash'];
+const settings={key:'',model:DEFAULT_MODEL};
+const pending=[]; // {id,url,status,name,amount,date,flags,err}
+let pid=0;
+
+// ---------- helpers ----------
+const fmt=n=>(Number(n)||0).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/ /g,' ')+' zł';
+const norm=s=>(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ł/gi,'l').toUpperCase().replace(/[^A-Z ]/g,' ').replace(/\s+/g,' ').trim();
+function lev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;let p=Array.from({length:n+1},(_,i)=>i);for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c}return p[n]}
+const sim=(a,b)=>{if(!a||!b)return 0;return 1-lev(a,b)/Math.max(a.length,b.length)};
+function bestMatch(raw){
+  const r=norm(raw); if(!r||!state.employees.length) return null;
+  const rRev=r.split(' ').reverse().join(' ');
+  const rSort=r.split(' ').sort().join(' ');
+  let best=null;
+  for(const e of state.employees){const n=norm(e);const s=Math.max(sim(r,n),sim(rRev,n),sim(rSort,n.split(' ').sort().join(' ')));if(!best||s>best.s)best={name:e,s}}
+  return best;
+}
+const today=()=>new Date().toISOString().slice(0,10);
+function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- storage ----------
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function saveRows(){lsSet('kw_rows',{rows:state.rows,withDate:state.withDate})}
+function saveEmployees(){lsSet('kw_emp',state.employees)}
+
+// ---------- render ----------
+function render(){
+  const tb=$('#tbody'); tb.innerHTML='';
+  state.rows.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(r.name)}${(r.count||1)>1?` <span class="chip kw">${r.count} KW</span>`:''}</td><td class="num dcol"${state.withDate?'':' hidden'}>${esc(r.date?r.date.split('-').reverse().join('.'):'')}</td><td class="num">${fmt(r.amount)}</td><td class="x"><button class="ghost" aria-label="Видалити рядок" data-del="${i}">✕</button></td>`;
+    tr.addEventListener('click',ev=>{if(ev.target.closest('[data-del]'))return;editRow(i)});
+    tb.appendChild(tr);
+  });
+  document.querySelectorAll('.dcol').forEach(el=>el.hidden=!state.withDate);
+  const total=state.rows.reduce((a,r)=>a+(Number(r.amount)||0),0);
+  $('#total').textContent=fmt(total); $('#barSum').textContent=fmt(total);
+  $('#empty').hidden=state.rows.length>0;
+  $('#withDate').checked=state.withDate;
+  $('#empCount').textContent=state.employees.length;
+  if(document.activeElement!==$('#empText')) $('#empText').value=state.employees.join('\n');
+  renderReview();
+}
+function renderReview(){
+  const box=$('#review'); $('#reviewSec').hidden=pending.length===0;
+  // keep existing cards to preserve input focus; rebuild only changed ones
+  box.innerHTML='';
+  pending.forEach(p=>box.appendChild(cardFor(p)));
+}
+function cardFor(p){
+  const c=document.createElement('div');
+  const warn=p.status==='done'&&p.flags.some(f=>f.k!=='ok');
+  c.className='card'+(warn?' warn':'');
+  const img=p.url?`<img src="${p.url}" alt="Фото бланка">`:`<div></div>`;
+  if(p.status==='work'){c.innerHTML=img+`<div class="body"><div class="status"><span class="spin"></span>Читаю бланк…</div></div>`}
+  else if(p.status==='error'){c.innerHTML=img+`<div class="body"><div class="chip b">${esc(p.err)}</div><div class="actions"><button type="button" data-a="retry">Спробувати ще</button><button type="button" data-a="manual">Ввести вручну</button><button type="button" class="ghost" data-a="drop">Відкинути</button></div></div>`}
+  else{
+    c.innerHTML=img+`<div class="body">
+      <label class="field"><span>Nazwisko Imię</span><input type="text" id="n${p.id}" list="emps" value="${esc(p.name)}" autocomplete="off"></label>
+      <div class="row2"><label class="field"><span>Kwota, zł</span><input type="number" inputmode="decimal" step="0.01" id="a${p.id}" value="${p.amount??''}"></label>
+      <label class="field"><span>Data</span><input type="date" id="d${p.id}" value="${esc(p.date||'')}"></label></div>
+      <div class="flags">${dupChip(p)}${p.flags.map(f=>`<span class="chip ${f.k==='ok'?'':f.k}">${esc(f.t)}</span>`).join('')}</div>
+      <div class="actions"><button type="button" class="primary" data-a="add">Додати в таблицю</button><button type="button" class="ghost" data-a="drop">Відкинути</button></div></div>`;
+  }
+  c.addEventListener('input',ev=>{
+    const t=ev.target;if(!t.id)return;
+    if(t.id==='n'+p.id)p.name=t.value;else if(t.id==='a'+p.id)p.amount=t.value;else if(t.id==='d'+p.id)p.date=t.value;
+  });
+  c.addEventListener('click',ev=>{
+    if(ev.target.tagName==='IMG'){zoom(p.url);return}
+    const a=ev.target.closest('[data-a]')?.dataset.a; if(!a)return;
+    if(a==='drop'){removePending(p)}
+    else if(a==='retry'){p.status='work';renderReview();recognize(p)}
+    else if(a==='manual'){p.status='done';p.name='';p.amount='';p.date=today();p.flags=[{k:'w',t:'Введено вручну'}];renderReview()}
+    else if(a==='add'){
+      const name=norm($('#n'+p.id).value);const amount=parseFloat(String($('#a'+p.id).value).replace(',','.'));
+      if(!name){toast('Впишіть прізвище та ім\'я');return}
+      if(!(amount>0)){toast('Впишіть суму');return}
+      const date=$('#d'+p.id).value||'';
+      const btn=ev.target.closest('[data-a]');btn.disabled=true;
+      addPending(p,name,amount,date).catch(e=>{btn.disabled=false;toast('Не вдалося зберегти фото: '+(e.message||e))});
+    }
+  });
+  return c;
+}
+async function addPending(p,name,amount,date){
+      const photos=(p.photos||[]).slice();
+      if(p.file){const id=await savePhoto(p.file);photos.push({id,date})}
+      p.photos=null;
+      const r=addRow({name,amount,date,count:p.count||1,photos});
+      saveRows();removePending(p);
+      toast(r.count>1?`${name}: ${r.count} KW, разом ${fmt(r.amount)}`:'Додано: '+name);
+}
+// One row per person: a repeated name adds its amount to the existing row.
+function addRow(n){
+  const amt=Math.round((Number(n.amount)||0)*100)/100;
+  const ex=state.rows.find(r=>norm(r.name)===norm(n.name));
+  if(ex){
+    ex.amount=Math.round((ex.amount+amt)*100)/100;
+    ex.count=(ex.count||1)+(n.count||1);
+    if(n.date&&(!ex.date||n.date>ex.date))ex.date=n.date;
+    ex.photos=(ex.photos||[]).concat(n.photos||[]);
+    return ex;
+  }
+  const r={name:norm(n.name),amount:amt,date:n.date||'',count:n.count||1,photos:(n.photos||[]).slice()};
+  state.rows.push(r);return r;
+}
+function mergeDuplicates(){
+  const old=state.rows;state.rows=[];old.forEach(r=>addRow(r));return old.length!==state.rows.length;
+}
+function dupChip(p){const ex=state.rows.find(r=>norm(r.name)===norm(p.name));return ex?`<span class="chip w">Вже є в таблиці (${esc(fmt(ex.amount))}), суму буде додано</span>`:''}
+function removePending(p){if(p.photos&&p.photos.length)deletePhotos(p.photos);const i=pending.indexOf(p);if(i>=0)pending.splice(i,1);if(p.url&&p.url.startsWith('blob:'))URL.revokeObjectURL(p.url);render()}
+function zoom(url){if(!url)return;const z=document.createElement('div');z.className='zoom';z.innerHTML=`<img src="${url}" alt="Фото бланка">`;z.onclick=()=>z.remove();document.body.appendChild(z)}
+function editRow(i){
+  const r=state.rows[i];state.rows.splice(i,1);saveRows();
+  const p={id:++pid,url:'',status:'done',name:r.name,amount:r.amount,date:r.date,count:r.count||1,photos:r.photos||[],flags:[{k:'ok',t:(r.count||1)>1?`Редагування: сума з ${r.count} KW`:'Редагування рядка'}]};
+  if(p.photos.length)p.flags.push({k:'ok',t:'Фото: '+p.photos.length});
+  pending.unshift(p);
+  if(p.photos.length)getPhoto(p.photos[0].id).then(b=>{if(b){p.url=URL.createObjectURL(b);renderReview()}});
+  render();$('#reviewSec').scrollIntoView({behavior:'smooth'});
+}
+
+// ---------- recognition ----------
+const PROMPT=list=>`Na zdjęciu jest polski formularz kasowy "Dowód wypłaty KW" wypełniony odręcznie.
+Odczytaj:
+- komu: imię i nazwisko z pola "Komu", dokładnie w kolejności zapisanej na formularzu (zwykle NAZWISKO IMIĘ),
+- kwota_zl: suma kwot w kolumnie "zł" (Ma Kasa) w wierszach pozycji, z groszami z kolumny "gr" jeśli są wpisane, jako liczba,
+- razem: kwota z pola "RAZEM" jako liczba (null jeśli puste),
+- data: data z góry formularza w formacie RRRR-MM-DD (null jeśli nieczytelna),
+- za_co: treść pola "za co",
+- pewnosc: "wysoka", "srednia" albo "niska" — jak pewny jesteś odczytu imienia i kwoty,
+- uwagi: krótko po polsku, co było nieczytelne (pusty tekst jeśli nic).
+${list.length?`Lista pracowników firmy (osoba na formularzu jest prawie na pewno jedną z nich):\n${list.join('\n')}\nW polu "dopasowanie" podaj DOKŁADNIE nazwę z tej listy, która pasuje do odręcznego zapisu, albo null jeśli nikt nie pasuje.`:'Pole "dopasowanie" ustaw na null.'}
+Jeśli na zdjęciu nie ma takiego formularza, zwróć {"formularze":[]}.
+Jeśli jest kilka formularzy, zwróć wszystkie.
+Odpowiedz wyłącznie JSON: {"formularze":[{"komu":"","dopasowanie":null,"kwota_zl":0,"razem":0,"data":"","za_co":"","pewnosc":"","uwagi":""}]}`;
+
+// ---------- Gemini ----------
+function shrink(file,max=1600){
+  return new Promise((ok,no)=>{
+    const url=URL.createObjectURL(file);const img=new Image();
+    img.onload=()=>{
+      const k=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+      const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);
+      ok(c.toDataURL('image/jpeg',0.88).split(',')[1]);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);const e=new Error('bad image');e.userMsg='Фото не відкривається, зробіть інше';no(e)};
+    img.src=url;
+  });
+}
+function gErr(status,msg){
+  const e=new Error(msg||('HTTP '+status));e.status=status;
+  if(status===400&&/API key/i.test(msg||''))e.userMsg='Неправильний ключ Gemini. Перевірте його в «Налаштуваннях»';
+  else if(status===401||status===403)e.userMsg='Ключ Gemini не підходить. Перевірте його в «Налаштуваннях»';
+  else if(status===429)e.userMsg='Вичерпано ліміт Gemini. Спробуйте за хвилину або завтра';
+  else if(status>=500)e.userMsg='Сервер Gemini зайнятий, спробуйте ще раз';
+  else if(status===0)e.userMsg='Немає інтернету';
+  return e;
+}
+async function callModel(model,body){
+  let r;
+  try{
+    r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
+      method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':settings.key},body:JSON.stringify(body)});
+  }catch(e){throw gErr(0,'network')}
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw gErr(r.status,j.error?.message);
+  const text=(j.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
+  if(!text){const e=new Error('empty');e.userMsg='Gemini не дав відповіді, спробуйте ще раз';throw e}
+  return text;
+}
+async function askGemini(prompt,file){
+  if(!settings.key){const e=new Error('no key');e.userMsg='Немає ключа Gemini. Вставте його в «Налаштуваннях»';throw e}
+  const parts=[{text:prompt}];
+  if(file)parts.unshift({inline_data:{mime_type:'image/jpeg',data:await shrink(file)}});
+  const body={contents:[{role:'user',parts}],generationConfig:{temperature:0,responseMimeType:'application/json'}};
+  const models=[settings.model,...FALLBACK_MODELS.filter(m=>m!==settings.model)];
+  let last;
+  for(const m of models){
+    try{
+      const text=await callModel(m,body);
+      if(m!==settings.model){settings.model=m;lsSet('kw_settings',settings);$('#model').value=m}
+      return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g,''));
+    }catch(e){last=e;if(e.status!==404)throw e}
+  }
+  throw last;
+}
+
+async function recognize(p){
+  try{
+    const res=await askGemini(PROMPT(state.employees),p.file);
+    const forms=(res&&res.formularze)||[];
+    if(!forms.length){p.status='error';p.err='На фото не знайдено бланк KW';renderReview();return}
+    forms.forEach((f,idx)=>{
+      const target=idx===0?p:{id:++pid,url:p.url,file:p.file};
+      fill(target,f);
+      if(idx>0)pending.splice(pending.indexOf(p)+idx,0,target);
+    });
+  }catch(e){
+    p.status='error';
+    p.err=e.userMsg||('Не вдалося прочитати: '+(e.message||'помилка'));
+  }
+  renderReview();
+}
+function fill(p,f){
+  const flags=[];
+  const raw=(f.komu||'').trim();
+  let name=norm(raw);
+  const m=bestMatch(f.dopasowanie||raw);
+  const listNorm=state.employees.map(norm);
+  if(f.dopasowanie&&listNorm.includes(norm(f.dopasowanie))&&m&&m.s>=0.55){name=norm(f.dopasowanie);flags.push(norm(raw)===name?{k:'ok',t:'Є в списку'}:{k:'ok',t:'Виправлено за списком (на бланку: '+raw+')'})}
+  else if(m&&m.s>=0.8){name=norm(m.name);flags.push({k:'ok',t:'Виправлено за списком (на бланку: '+raw+')'})}
+  else if(state.employees.length){flags.push({k:'w',t:'Немає в списку працівників'})}
+  let amount=Number(f.kwota_zl)||null; const razem=f.razem==null?null:Number(f.razem);
+  if(amount==null&&razem)amount=razem;
+  if(razem!=null&&amount!=null&&Math.abs(razem-amount)>0.004)flags.push({k:'b',t:`Сума ${fmt(amount)} ≠ RAZEM ${fmt(razem)}`});
+  else if(razem!=null)flags.push({k:'ok',t:'Сума = RAZEM'});
+  if(f.pewnosc&&f.pewnosc!=='wysoka')flags.push({k:'w',t:f.pewnosc==='niska'?'Погано читається, перевірте':'Перевірте уважніше'});
+  if(f.uwagi)flags.push({k:'w',t:f.uwagi});
+  if(f.za_co)flags.push({k:'ok',t:'za co: '+f.za_co});
+  Object.assign(p,{status:'done',name,amount,date:/^\d{4}-\d{2}-\d{2}$/.test(f.data||'')?f.data:today(),flags});
+}
+
+let queue=Promise.resolve();
+function onPhotos(e){
+  const files=[...e.target.files]; e.target.value='';
+  if(!files.length)return;
+  if(!settings.key){$('#noAi').hidden=false;$('#setBox').open=true;$('#setBox').scrollIntoView({behavior:'smooth'});toast('Спершу вставте ключ Gemini');return}
+  for(const file of files){
+    const p={id:++pid,file,url:URL.createObjectURL(file),status:'work',flags:[]};
+    pending.push(p);
+    queue=queue.then(()=>recognize(p));
+  }
+  render();
+}
+$('#photo').addEventListener('change',onPhotos);
+$('#photo2').addEventListener('change',onPhotos);
+$('#setSave').onclick=()=>{
+  settings.key=$('#apiKey').value.trim();settings.model=$('#model').value.trim()||DEFAULT_MODEL;
+  lsSet('kw_settings',settings);$('#noAi').hidden=!!settings.key;toast(settings.key?'Налаштування збережено':'Ключ видалено');
+};
+$('#setTest').onclick=async()=>{
+  const b=$('#setTest');settings.key=$('#apiKey').value.trim();settings.model=$('#model').value.trim()||DEFAULT_MODEL;
+  b.disabled=true;b.textContent='Перевіряю…';
+  try{const r=await askGemini('Odpowiedz JSON: {"ok":true}');if(r&&r.ok){lsSet('kw_settings',settings);$('#noAi').hidden=true;toast('Ключ працює ('+settings.model+')')}else toast('Дивна відповідь від Gemini')}
+  catch(e){toast(e.userMsg||e.message)}
+  b.disabled=false;b.textContent='Перевірити ключ';
+};
+$('#addManual').onclick=()=>{pending.unshift({id:++pid,url:'',status:'done',name:'',amount:'',date:today(),flags:[{k:'w',t:'Введено вручну'}]});render();$('#reviewSec').scrollIntoView({behavior:'smooth'})};
+$('#tbody').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;const i=+b.dataset.del;const r=state.rows[i];state.rows.splice(i,1);deletePhotos(r.photos||[]);saveRows();render();toast('Видалено: '+r.name)});
+$('#withDate').onchange=e=>{state.withDate=e.target.checked;saveRows();render()};
+$('#empSave').onclick=()=>{state.employees=[...new Set($('#empText').value.split('\n').map(norm).filter(Boolean))];saveEmployees();render();updateDatalist();toast('Список збережено')};
+$('#clearBtn').onclick=()=>{
+  if(!state.rows.length&&!pending.length){toast('Таблиця вже порожня');return}
+  const n=state.rows.length,k=pending.length;
+  $('#clearText').textContent=`Видалити всі рядки таблиці (${n})`+(k?` і неперевірені бланки (${k})`:'')+'?';
+  $('#clearConfirm').hidden=false;$('#cNo').focus();
+};
+$('#cNo').onclick=()=>{$('#clearConfirm').hidden=true};
+$('#cYes').onclick=()=>{
+  state.rows=[];pending.splice(0).forEach(p=>{if(p.url&&p.url.startsWith('blob:'))URL.revokeObjectURL(p.url)});clearPhotos();
+  saveRows();render();$('#clearConfirm').hidden=true;toast('Таблицю вичищено');
+};
+function updateDatalist(){let dl=$('#emps');if(!dl){dl=document.createElement('datalist');dl.id='emps';document.body.appendChild(dl)}dl.innerHTML=state.employees.map(e=>`<option value="${esc(e)}">`).join('')}
+
+// ---------- photos (IndexedDB) ----------
+let idbP=null;
+function idb(){
+  if(!idbP)idbP=new Promise((ok,no)=>{const r=indexedDB.open('skaner-kw',1);r.onupgradeneeded=()=>r.result.createObjectStore('photos');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+  return idbP;
+}
+async function tx(mode,fn){const d=await idb();return new Promise((ok,no)=>{const t=d.transaction('photos',mode);const s=t.objectStore('photos');const r=fn(s);t.oncomplete=()=>ok(r&&r.result);t.onerror=()=>no(t.error)})}
+async function savePhoto(file){
+  const blob=await new Promise((ok,no)=>{const url=URL.createObjectURL(file);const img=new Image();
+    img.onload=()=>{const k=Math.min(1,1600/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);c.toBlob(b=>b?ok(b):no(new Error('jpeg')),'image/jpeg',0.8)};
+    img.onerror=()=>{URL.revokeObjectURL(url);no(new Error('фото не відкривається'))};img.src=url});
+  const id='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  await tx('readwrite',s=>s.put(blob,id));return id;
+}
+const getPhoto=id=>tx('readonly',s=>s.get(id)).catch(()=>null);
+function deletePhotos(list){if(list&&list.length)tx('readwrite',s=>{list.forEach(ph=>s.delete(ph.id))}).catch(()=>{})}
+function clearPhotos(){tx('readwrite',s=>s.clear()).catch(()=>{})}
+
+// ---------- PDF ----------
+function loadPdfLib(){
+  if(window.jspdf)return Promise.resolve();
+  return new Promise((ok,no)=>{const s=document.createElement('script');s.src='lib/jspdf.umd.min.js';s.onload=ok;s.onerror=()=>no(new Error('не завантажилась бібліотека PDF'));document.head.appendChild(s)});
+}
+const blobToDataURL=b=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>no(r.error);r.readAsDataURL(b)});
+const imgSize=url=>new Promise(ok=>{const i=new Image();i.onload=()=>ok([i.naturalWidth,i.naturalHeight]);i.onerror=()=>ok([1,1]);i.src=url});
+// One page per KW photo, in table order, captioned with name, date and KW number.
+async function buildPdf(){
+  const items=[];
+  state.rows.forEach(r=>(r.photos||[]).forEach((ph,k,arr)=>items.push({r,ph,k,n:arr.length})));
+  if(!items.length)return null;
+  await loadPdfLib();
+  const {jsPDF}=window.jspdf;let doc=null;
+  for(const it of items){
+    const blob=await getPhoto(it.ph.id);if(!blob)continue;
+    const url=await blobToDataURL(blob);const [w,hh]=await imgSize(url);
+    const orient=w>hh?'l':'p';
+    if(!doc)doc=new jsPDF({orientation:orient,unit:'mm',format:'a4',compress:true});else doc.addPage('a4',orient);
+    const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),m=10,top=18;
+    const d=(it.ph.date||it.r.date||'').split('-').reverse().join('.');
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(it.r.name,m,12);
+    doc.setFont('helvetica','normal');doc.setFontSize(10);
+    doc.text([d,it.n>1?`KW ${it.k+1}/${it.n}`:''].filter(Boolean).join('   '),W-m,12,{align:'right'});
+    const k=Math.min((W-2*m)/w,(H-top-m)/hh);const iw=w*k,ih=hh*k;
+    doc.addImage(url,'JPEG',(W-iw)/2,top,iw,ih);
+  }
+  return doc?new Blob([doc.output('arraybuffer')],{type:'application/pdf'}):null;
+}
+
+// ---------- Excel ----------
+function loadExcel(){
+  if(window.ExcelJS)return Promise.resolve();
+  return new Promise((ok,no)=>{const s=document.createElement('script');s.src='lib/exceljs.min.js';s.onload=ok;s.onerror=()=>no(new Error('не завантажилась бібліотека Excel'));document.head.appendChild(s)});
+}
+async function buildXlsx(){
+  await loadExcel();
+  const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Wypłaty');
+  const wd=state.withDate;
+  ws.columns=wd?[{width:42},{width:13},{width:16}]:[{width:42},{width:16}];
+  const head=wd?['Nazwisko Imię','Data','Kwota']:['Nazwisko Imię','Kwota'];
+  const blue='FF5B9BD5', band='FFDDEBF7', border={style:'thin',color:{argb:'FF9BC2E6'}};
+  const hr=ws.addRow(head);
+  hr.eachCell((c,i)=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:blue}};c.alignment={horizontal:i===1?'left':'right'}});
+  const kcol=wd?'C':'B';
+  state.rows.forEach((r,i)=>{
+    const vals=wd?[r.name,r.date?new Date(r.date+'T00:00:00'):null,r.amount]:[r.name,r.amount];
+    const row=ws.addRow(vals);
+    row.eachCell({includeEmpty:true},c=>{if(i%2===0)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:band}};c.border={top:border,bottom:border}});
+    row.getCell(kcol).numFmt='#,##0.00 "zł"';
+    if(wd)row.getCell('B').numFmt='dd.mm.yyyy';
+  });
+  const last=state.rows.length+1;
+  const total=state.rows.reduce((a,r)=>a+r.amount,0);
+  const tr=ws.addRow(wd?['',null,{formula:`SUM(C2:C${last})`,result:total}]:['',{formula:`SUM(B2:B${last})`,result:total}]);
+  tr.eachCell({includeEmpty:true},c=>{c.border={top:{style:'double',color:{argb:blue}}}});
+  const tc=tr.getCell(kcol); tc.font={bold:true}; tc.numFmt='#,##0.00 "zł"';
+  return new Blob([await wb.xlsx.writeBuffer()]);
+}
+function saveFile(file){
+  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},5000);
+}
+$('#exportBtn').onclick=async()=>{
+  if(!state.rows.length){toast('Таблиця порожня');return}
+  const btn=$('#exportBtn');btn.disabled=true;btn.textContent='Готую файли…';
+  try{
+    const d=(state.rows.find(r=>r.date)?.date)||today();
+    const files=[new File([await buildXlsx()],`wyplaty_${d}.xlsx`,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})];
+    const pdf=await buildPdf();
+    if(pdf)files.push(new File([pdf],`KW_${d}.pdf`,{type:'application/pdf'}));
+    const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+    if(isIOS&&navigator.canShare&&navigator.canShare({files})){
+      // iPhone: the share sheet saves both files to Files at once.
+      try{await navigator.share({files})}catch(e){if(e.name!=='AbortError')toast('Не вдалося поділитися: '+e.message)}
+    }else{
+      saveFile(files[0]);
+      if(files[1])await new Promise(r=>setTimeout(()=>{saveFile(files[1]);r()},700));
+      toast(files.length>1?'Завантажено Excel і PDF':'Завантажено Excel (фото бланків немає, тому без PDF)');
+    }
+  }catch(e){toast('Помилка: '+(e.message||e))}
+  btn.disabled=false;btn.textContent='Завантажити Excel + PDF';
+};
+
+// ---------- boot ----------
+const lr=lsGet('kw_rows'); if(lr){state.rows=lr.rows||[];state.withDate=!!lr.withDate;mergeDuplicates()}
+const le=lsGet('kw_emp'); state.employees=Array.isArray(le)?le:DEFAULT_EMPLOYEES.slice();
+Object.assign(settings,lsGet('kw_settings')||{});
+$('#apiKey').value=settings.key;$('#model').value=settings.model;
+$('#noAi').hidden=!!settings.key;
+render();updateDatalist();
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>
