@@ -125,10 +125,22 @@ details textarea{min-height:220px;text-transform:uppercase}
 .check{display:flex;align-items:center;gap:8px;font-size:14px}
 .muted{color:var(--muted);font-size:13px}
 .confirm{background:var(--bad-soft);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;box-shadow:var(--shadow-sm)}
-.zoom{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
-.zoom img{max-width:100%;max-height:100%;border-radius:12px;box-shadow:var(--shadow-lg)}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:12px;font-size:14px;z-index:11;max-width:calc(100% - 32px);
-  box-shadow:var(--shadow-md)}
+.zoom{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;z-index:10;overflow:auto}
+.zoom.multi{justify-content:flex-start}
+.zoom img{max-width:100%;max-height:calc(100vh - 96px);border-radius:12px;box-shadow:var(--shadow-lg)}
+.zoom .zbar{display:flex;gap:8px;align-items:center;justify-content:space-between;width:100%;max-width:560px;color:#fff;font-weight:600}
+.zoom .zlist{display:flex;flex-direction:column;gap:14px;width:100%;max-width:560px;align-items:center}
+.zoom .zitem{display:flex;flex-direction:column;gap:6px;align-items:center;width:100%}
+.zoom .zitem img{max-height:72vh}
+.archbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow-sm)}
+.archlist{display:flex;flex-direction:column;gap:8px}
+.architem{border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;background:var(--bg)}
+.archtop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.archtitle{font-weight:600;word-break:break-word}
+.archmeta{font-size:12px;color:var(--muted)}
+.architem .actions button{padding:7px 10px;font-size:13px}
+input[type=search]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%;min-width:0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:12px;font-size:14px;z-index:11;max-width:calc(100% - 32px);box-shadow:var(--shadow-md)}
 </style>
 </head>
 <body>
@@ -165,6 +177,17 @@ details textarea{min-height:220px;text-transform:uppercase}
     <label class="check"><input type="checkbox" id="withDate"> Додати колонку з датою в Excel</label>
   </div>
 
+  <div class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <h2>Пошук PDF за прізвищем (<span id="archCount">0</span>)</h2>
+    </div>
+    <div class="archbox">
+      <input type="search" id="pdfSearch" list="emps" placeholder="Впишіть прізвище або дату (напр. RUBANENKO)…" autocomplete="off" spellcheck="false">
+      <div id="archList" class="archlist"></div>
+      <div id="archEmpty" class="muted" style="text-align:center;padding:6px 0">Архів порожній. Після натискання «Завантажити Excel + PDF» файл автоматично збережеться тут і не зникне після «Вичистити».</div>
+    </div>
+  </div>
+
   <details id="empBox">
     <summary>Список працівників (<span id="empCount">0</span>)</summary>
     <div class="inner">
@@ -179,9 +202,10 @@ details textarea{min-height:220px;text-transform:uppercase}
     <div class="inner">
       <label class="field"><span>Ключ Gemini API (з aistudio.google.com/apikey)</span><input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="AIza..."></label>
       <label class="field"><span>Модель Gemini</span><input type="text" id="model" spellcheck="false" placeholder="gemini-3.8-flash"></label>
+      <label class="check"><input type="checkbox" id="savePhotosSet"> Автоматично зберігати фото бланків на телефон</label>
       <div class="actions"><button class="primary" type="button" id="setSave">Зберегти</button><button type="button" id="setTest">Перевірити ключ</button></div>
       <p class="muted" style="margin:0">Ключ зберігається лише на цьому телефоні. Фото надсилаються тільки в Google Gemini для розпізнавання. Якщо модель перестане працювати, програма сама спробує новішу або іншу з моделей Flash.</p>
-      <p class="muted" style="margin:0">Таблиця й список працівників теж зберігаються лише в цьому браузері на цьому телефоні.</p>
+      <p class="muted" style="margin:0">Таблиця, архів PDF і список працівників зберігаються лише в цьому браузері на цьому телефоні.</p>
     </div>
   </details>
 </div>
@@ -202,33 +226,52 @@ details textarea{min-height:220px;text-transform:uppercase}
 (function(){
 const $=s=>document.querySelector(s);
 const state={rows:[],employees:[],withDate:false};
-const DEFAULT_EMPLOYEES=["BUGALIYA NEMI CHAND","MAHATO AMAR BAHADUR","MANANDHAR SUNIL","TAMANG NORBU","DUBOVOI OLEKSANDR","RUBANENKO RUSTAM","SAMADOV MUSA","CORREDOR CASTANEDA JOHN JAIRO","MASIMOV SARKHAN","SEIKH ASRAFUL","THANKACHAN NITHIN","MEMBRENO LOPEZ ROBERTO ENRIQUE"];
+const DEFAULT_EMPLOYEES=[];
 const DEFAULT_MODEL='gemini-3.8-flash';
 const FALLBACK_MODELS=['gemini-3.8-flash','gemini-3.5-flash','gemini-flash-latest','gemini-2.5-flash'];
-const settings={key:'',model:DEFAULT_MODEL};
-const pending=[]; // {id,url,status,name,amount,date,flags,err}
+const settings={key:'',model:DEFAULT_MODEL,savePhotos:true};
+const pending=[]; // {id,url,status,name,amount,date,flags,err,isEdit,editRid}
+let archives=[];
+let showAllArchives=false;
 let pid=0;
+const mkId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const slugName=s=>norm(s).replace(/\s+/g,'_')||'KW';
 
 // ---------- helpers ----------
-const fmt=n=>(Number(n)||0).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/ /g,' ')+' zł';
-const norm=s=>(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ł/gi,'l').toUpperCase().replace(/[^A-Z ]/g,' ').replace(/\s+/g,' ').trim();
+const fmt=n=>(Number(n)||0).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/[\u00a0\u202f]/g,' ')+' zł';
+const norm=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ł/gi,'l').toUpperCase().replace(/[^A-Z ]/g,' ').replace(/\s+/g,' ').trim();
 function lev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;let p=Array.from({length:n+1},(_,i)=>i);for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c}return p[n]}
 const sim=(a,b)=>{if(!a||!b)return 0;return 1-lev(a,b)/Math.max(a.length,b.length)};
+function nameSim(a,b){
+  const x=norm(a),y=norm(b); if(!x||!y)return 0;
+  const xRev=x.split(' ').reverse().join(' ');
+  const xSort=x.split(' ').sort().join(' ');
+  const ySort=y.split(' ').sort().join(' ');
+  return Math.max(sim(x,y),sim(xRev,y),sim(xSort,ySort));
+}
+function hasTokenMatch(raw,target){
+  const rt=norm(raw).split(' ').filter(w=>w.length>=3);
+  const tt=norm(target).split(' ').filter(w=>w.length>=3);
+  return rt.length>0&&rt.every(w=>tt.some(t=>sim(w,t)>=0.8));
+}
 function bestMatch(raw){
   const r=norm(raw); if(!r||!state.employees.length) return null;
-  const rRev=r.split(' ').reverse().join(' ');
-  const rSort=r.split(' ').sort().join(' ');
   let best=null;
-  for(const e of state.employees){const n=norm(e);const s=Math.max(sim(r,n),sim(rRev,n),sim(rSort,n.split(' ').sort().join(' ')));if(!best||s>best.s)best={name:e,s}}
+  for(const e of state.employees){const s=nameSim(r,e);if(!best||s>best.s)best={name:e,s}}
   return best;
 }
-const today=()=>new Date().toISOString().slice(0,10);
+function parseNum(v){
+  if(v==null||v==='')return null;
+  const n=typeof v==='number'?v:parseFloat(String(v).replace(/\s+/g,'').replace(',','.'));
+  return Number.isFinite(n)?Math.round(n*100)/100:null;
+}
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 // ---------- storage ----------
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}}
-function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){toast('Не вдалося зберегти дані в браузері (недостатньо пам\'яті)');return false}}
 function saveRows(){lsSet('kw_rows',{rows:state.rows,withDate:state.withDate})}
 function saveEmployees(){lsSet('kw_emp',state.employees)}
 
@@ -250,17 +293,49 @@ function render(){
   if(document.activeElement!==$('#empText')) $('#empText').value=state.employees.join('\n');
   renderReview();
 }
+function cardKey(p){return `${p.status}|${p.err||''}|${p.isEdit?1:0}`}
+function syncThumb(c,p){
+  const cur=c.firstElementChild;
+  if(p.url){
+    if(cur&&cur.tagName==='IMG'){if(cur.getAttribute('src')!==p.url)cur.src=p.url}
+    else{const im=document.createElement('img');im.src=p.url;im.alt='Фото бланка';cur?cur.replaceWith(im):c.prepend(im)}
+  }else if(!cur||cur.tagName==='IMG'){
+    const d=document.createElement('div');cur?cur.replaceWith(d):c.prepend(d);
+  }
+}
+function syncCardDup(c,p){
+  const slot=c.querySelector('.dup-slot');
+  if(slot)slot.innerHTML=dupChip(p);
+  c.classList.toggle('warn',hasWarn(p));
+}
 function renderReview(){
   const box=$('#review'); $('#reviewSec').hidden=pending.length===0;
-  // keep existing cards to preserve input focus; rebuild only changed ones
-  box.innerHTML='';
-  pending.forEach(p=>box.appendChild(cardFor(p)));
+  // Keep existing card DOM nodes to preserve input focus and mobile keyboard.
+  const existing=new Map();
+  [...box.children].forEach(el=>existing.set(Number(el.dataset.pid),el));
+  const wanted=new Set(pending.map(p=>p.id));
+  existing.forEach((el,id)=>{if(!wanted.has(id))el.remove()});
+  pending.forEach((p,idx)=>{
+    const key=cardKey(p);
+    let node=existing.get(p.id);
+    if(!node||node._key!==key){
+      const fresh=cardFor(p);
+      fresh.dataset.pid=p.id;fresh._key=key;
+      if(node&&node.parentNode===box)node.replaceWith(fresh);
+      else box.insertBefore(fresh,box.children[idx]||null);
+      node=fresh;
+    }else{
+      syncThumb(node,p);
+      syncCardDup(node,p);
+      if(box.children[idx]!==node)box.insertBefore(node,box.children[idx]||null);
+    }
+  });
 }
+function hasWarn(p){return p.status==='done'&&(p.flags.some(f=>f.k!=='ok')||!!findDup(p))}
 function cardFor(p){
   const c=document.createElement('div');
-  const warn=p.status==='done'&&p.flags.some(f=>f.k!=='ok');
-  c.className='card'+(warn?' warn':'');
-  const img=p.url?`<img src="${p.url}" alt="Фото бланка">`:`<div></div>`;
+  c.className='card'+(hasWarn(p)?' warn':'');
+  const img=p.url?`<img src="${esc(p.url)}" alt="Фото бланка">`:`<div></div>`;
   if(p.status==='work'){c.innerHTML=img+`<div class="body"><div class="status"><span class="spin"></span>Читаю бланк…</div></div>`}
   else if(p.status==='error'){c.innerHTML=img+`<div class="body"><div class="chip b">${esc(p.err)}</div><div class="actions"><button type="button" data-a="retry">Спробувати ще</button><button type="button" data-a="manual">Ввести вручну</button><button type="button" class="ghost" data-a="drop">Відкинути</button></div></div>`}
   else{
@@ -268,24 +343,27 @@ function cardFor(p){
       <label class="field"><span>Nazwisko Imię</span><input type="text" id="n${p.id}" list="emps" value="${esc(p.name)}" autocomplete="off"></label>
       <div class="row2"><label class="field"><span>Kwota, zł</span><input type="number" inputmode="decimal" step="0.01" id="a${p.id}" value="${p.amount??''}"></label>
       <label class="field"><span>Data</span><input type="date" id="d${p.id}" value="${esc(p.date||'')}"></label></div>
-      <div class="flags">${dupChip(p)}${p.flags.map(f=>`<span class="chip ${f.k==='ok'?'':f.k}">${esc(f.t)}</span>`).join('')}</div>
-      <div class="actions"><button type="button" class="primary" data-a="add">Додати в таблицю</button><button type="button" class="ghost" data-a="drop">Відкинути</button></div></div>`;
+      <div class="flags"><span class="dup-slot" style="display:contents">${dupChip(p)}</span>${p.flags.map(f=>`<span class="chip ${f.k==='ok'?'':f.k}">${esc(f.t)}</span>`).join('')}</div>
+      <div class="actions"><button type="button" class="primary" data-a="add">${p.isEdit?'Зберегти зміни':'Додати в таблицю'}</button><button type="button" class="ghost" data-a="drop">${p.isEdit?'Скасувати':'Відкинути'}</button></div></div>`;
   }
   c.addEventListener('input',ev=>{
     const t=ev.target;if(!t.id)return;
-    if(t.id==='n'+p.id)p.name=t.value;else if(t.id==='a'+p.id)p.amount=t.value;else if(t.id==='d'+p.id)p.date=t.value;
+    if(t.id==='n'+p.id){p.name=t.value;syncCardDup(c,p)}
+    else if(t.id==='a'+p.id)p.amount=t.value;
+    else if(t.id==='d'+p.id)p.date=t.value;
   });
   c.addEventListener('click',ev=>{
-    if(ev.target.tagName==='IMG'){zoom(p.url);return}
+    if(ev.target.tagName==='IMG'){zoom(p.url,`KW_${slugName(p.name||'blanek')}_${p.date||today()}.jpg`);return}
     const a=ev.target.closest('[data-a]')?.dataset.a; if(!a)return;
     if(a==='drop'){removePending(p)}
-    else if(a==='retry'){p.status='work';renderReview();recognize(p)}
+    else if(a==='retry'){p.status='work';p.err='';renderReview();queue=queue.then(()=>recognize(p)).catch(()=>{})}
     else if(a==='manual'){p.status='done';p.name='';p.amount='';p.date=today();p.flags=[{k:'w',t:'Введено вручну'}];renderReview()}
     else if(a==='add'){
       const name=norm($('#n'+p.id).value);const amount=parseFloat(String($('#a'+p.id).value).replace(',','.'));
-      if(!name){toast('Впишіть прізвище та ім\'я');return}
+      if(!name){toast('Впишіть прізвище та ім\'я (латиницею)');return}
       if(!(amount>0)){toast('Впишіть суму');return}
       const date=$('#d'+p.id).value||'';
+      if(p.isEdit){saveEdit(p,name,amount,date);return}
       const btn=ev.target.closest('[data-a]');btn.disabled=true;
       addPending(p,name,amount,date).catch(e=>{btn.disabled=false;toast('Не вдалося зберегти фото: '+(e.message||e))});
     }
@@ -294,11 +372,36 @@ function cardFor(p){
 }
 async function addPending(p,name,amount,date){
       const photos=(p.photos||[]).slice();
-      if(p.file){const id=await savePhoto(p.file);photos.push({id,date})}
-      p.photos=null;
+      let savedBlob=null;
+      if(p.file){const res=await savePhoto(p.file);photos.push({id:res.id,date});savedBlob=res.blob}
       const r=addRow({name,amount,date,count:p.count||1,photos});
       saveRows();removePending(p);
+      if(savedBlob&&settings.savePhotos){
+        saveFile(new File([savedBlob],`KW_${slugName(name)}_${date||today()}.jpg`,{type:'image/jpeg'}));
+      }
       toast(r.count>1?`${name}: ${r.count} KW, разом ${fmt(r.amount)}`:'Додано: '+name);
+}
+function saveEdit(p,name,amount,date){
+  const amt=Math.round((Number(amount)||0)*100)/100;
+  const idx=state.rows.findIndex(r=>r.rid===p.editRid);
+  const orig=idx>=0?state.rows[idx]:null;
+  const other=state.rows.find(r=>r.rid!==p.editRid&&norm(r.name)===norm(name));
+  if(other){
+    const photos=orig?(orig.photos||[]):(p.photos||[]);
+    const cnt=orig?(orig.count||1):(p.count||1);
+    if(idx>=0)state.rows.splice(idx,1);
+    other.amount=Math.round((other.amount+amt)*100)/100;
+    other.count=(other.count||1)+cnt;
+    if(date&&(!other.date||date>other.date))other.date=date;
+    other.photos=(other.photos||[]).concat(photos);
+    saveRows();removePending(p);
+    toast(`${other.name}: ${other.count} KW, разом ${fmt(other.amount)}`);
+    return;
+  }
+  if(orig){orig.name=norm(name);orig.amount=amt;orig.date=date||''}
+  else addRow({name,amount:amt,date,count:p.count||1,photos:p.photos||[]});
+  saveRows();removePending(p);
+  toast('Збережено: '+norm(name));
 }
 // One row per person: a repeated name adds its amount to the existing row.
 function addRow(n){
@@ -311,21 +414,49 @@ function addRow(n){
     ex.photos=(ex.photos||[]).concat(n.photos||[]);
     return ex;
   }
-  const r={name:norm(n.name),amount:amt,date:n.date||'',count:n.count||1,photos:(n.photos||[]).slice()};
+  const r={rid:n.rid||mkId('r'),name:norm(n.name),amount:amt,date:n.date||'',count:n.count||1,photos:(n.photos||[]).slice()};
   state.rows.push(r);return r;
 }
 function mergeDuplicates(){
   const old=state.rows;state.rows=[];old.forEach(r=>addRow(r));return old.length!==state.rows.length;
 }
-function dupChip(p){const ex=state.rows.find(r=>norm(r.name)===norm(p.name));return ex?`<span class="chip w">Вже є в таблиці (${esc(fmt(ex.amount))}), суму буде додано</span>`:''}
-function removePending(p){if(p.photos&&p.photos.length)deletePhotos(p.photos);const i=pending.indexOf(p);if(i>=0)pending.splice(i,1);if(p.url&&p.url.startsWith('blob:'))URL.revokeObjectURL(p.url);render()}
-function zoom(url){if(!url)return;const z=document.createElement('div');z.className='zoom';z.innerHTML=`<img src="${url}" alt="Фото бланка">`;z.onclick=()=>z.remove();document.body.appendChild(z)}
+function findDup(p){
+  const n=norm(p.name); if(!n)return null;
+  return state.rows.find(r=>norm(r.name)===n&&(!p.isEdit||r.rid!==p.editRid))||null;
+}
+function dupChip(p){
+  const ex=findDup(p);
+  return ex?`<span class="chip w">${p.isEdit?'Злиття з рядком':'Вже є в таблиці'} (${esc(fmt(ex.amount))}), суму буде додано</span>`:'';
+}
+function removePending(p){
+  const i=pending.indexOf(p);if(i>=0)pending.splice(i,1);
+  if(p.url&&p.url.startsWith('blob:')&&!pending.some(x=>x.url===p.url))URL.revokeObjectURL(p.url);
+  render();
+}
+function zoom(url,filename){
+  if(!url)return;
+  const z=document.createElement('div');z.className='zoom';
+  const bar=document.createElement('div');bar.className='zbar';
+  bar.innerHTML=`<span>Фото бланка</span><div class="actions">${filename?'<button type="button" data-z="save">Зберегти на телефон</button>':''}<button type="button" data-z="close">Закрити</button></div>`;
+  const im=document.createElement('img');im.src=url;im.alt='Фото бланка';
+  z.append(bar,im);
+  const close=()=>{z.remove();document.removeEventListener('keydown',onKey)};
+  const onKey=e=>{if(e.key==='Escape')close()};
+  z.onclick=ev=>{
+    const a=ev.target.closest('[data-z]')?.dataset.z;
+    if(a==='save'){const lnk=document.createElement('a');lnk.href=url;lnk.download=filename;document.body.appendChild(lnk);lnk.click();lnk.remove();toast('Фото збережено');return}
+    if(a==='close'||ev.target===z||ev.target===im)close();
+  };
+  document.addEventListener('keydown',onKey);document.body.appendChild(z);
+}
 function editRow(i){
-  const r=state.rows[i];state.rows.splice(i,1);saveRows();
-  const p={id:++pid,url:'',status:'done',name:r.name,amount:r.amount,date:r.date,count:r.count||1,photos:r.photos||[],flags:[{k:'ok',t:(r.count||1)>1?`Редагування: сума з ${r.count} KW`:'Редагування рядка'}]};
+  const r=state.rows[i];if(!r)return;
+  const open=pending.find(x=>x.isEdit&&x.editRid===r.rid);
+  if(open){$('#reviewSec').scrollIntoView({behavior:'smooth'});const inp=$('#n'+open.id);if(inp)inp.focus();return}
+  const p={id:++pid,url:'',status:'done',isEdit:true,editRid:r.rid,name:r.name,amount:r.amount,date:r.date,count:r.count||1,photos:(r.photos||[]).slice(),flags:[{k:'ok',t:(r.count||1)>1?`Редагування: сума з ${r.count} KW`:'Редагування рядка'}]};
   if(p.photos.length)p.flags.push({k:'ok',t:'Фото: '+p.photos.length});
   pending.unshift(p);
-  if(p.photos.length)getPhoto(p.photos[0].id).then(b=>{if(b){p.url=URL.createObjectURL(b);renderReview()}});
+  if(p.photos.length)getPhoto(p.photos[0].id).then(b=>{if(!b||!pending.includes(p))return;p.url=URL.createObjectURL(b);renderReview()});
   render();$('#reviewSec').scrollIntoView({behavior:'smooth'});
 }
 
@@ -368,11 +499,16 @@ function gErr(status,msg){
   return e;
 }
 async function callModel(model,body){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),45000);
   let r;
   try{
     r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
-      method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':settings.key},body:JSON.stringify(body)});
-  }catch(e){throw gErr(0,'network')}
+      method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':settings.key},body:JSON.stringify(body),signal:ctrl.signal});
+  }catch(e){
+    if(e&&e.name==='AbortError'){const te=new Error('timeout');te.userMsg='Час очікування минув. Перевірте інтернет і спробуйте ще раз';throw te}
+    throw gErr(0,'network');
+  }finally{clearTimeout(timer)}
   const j=await r.json().catch(()=>({}));
   if(!r.ok)throw gErr(r.status,j.error?.message);
   const text=(j.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
@@ -390,23 +526,28 @@ async function askGemini(prompt,file){
     try{
       const text=await callModel(m,body);
       if(m!==settings.model){settings.model=m;lsSet('kw_settings',settings);$('#model').value=m}
-      return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g,''));
+      try{return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g,''))}
+      catch(_){const pe=new Error('bad json');pe.userMsg='Gemini повернув некоректну відповідь, спробуйте ще раз';throw pe}
     }catch(e){last=e;if(e.status!==404)throw e}
   }
   throw last;
 }
 
 async function recognize(p){
+  if(!pending.includes(p))return;
   try{
     const res=await askGemini(PROMPT(state.employees),p.file);
-    const forms=(res&&res.formularze)||[];
+    const baseIdx=pending.indexOf(p);
+    if(baseIdx<0)return;
+    const forms=(res&&Array.isArray(res.formularze))?res.formularze:[];
     if(!forms.length){p.status='error';p.err='На фото не знайдено бланк KW';renderReview();return}
     forms.forEach((f,idx)=>{
       const target=idx===0?p:{id:++pid,url:p.url,file:p.file};
       fill(target,f);
-      if(idx>0)pending.splice(pending.indexOf(p)+idx,0,target);
+      if(idx>0)pending.splice(baseIdx+idx,0,target);
     });
   }catch(e){
+    if(!pending.includes(p))return;
     p.status='error';
     p.err=e.userMsg||('Не вдалося прочитати: '+(e.message||'помилка'));
   }
@@ -415,16 +556,31 @@ async function recognize(p){
 function fill(p,f){
   const flags=[];
   const raw=(f.komu||'').trim();
-  let name=norm(raw);
-  const m=bestMatch(f.dopasowanie||raw);
+  const rawNorm=norm(raw);
+  let name=rawNorm;
+  const dop=norm(f.dopasowanie||'');
   const listNorm=state.employees.map(norm);
-  if(f.dopasowanie&&listNorm.includes(norm(f.dopasowanie))&&m&&m.s>=0.55){name=norm(f.dopasowanie);flags.push(norm(raw)===name?{k:'ok',t:'Є в списку'}:{k:'ok',t:'Виправлено за списком (на бланку: '+raw+')'})}
-  else if(m&&m.s>=0.8){name=norm(m.name);flags.push({k:'ok',t:'Виправлено за списком (на бланку: '+raw+')'})}
-  else if(state.employees.length){flags.push({k:'w',t:'Немає в списку працівників'})}
-  let amount=Number(f.kwota_zl)||null; const razem=f.razem==null?null:Number(f.razem);
-  if(amount==null&&razem)amount=razem;
-  if(razem!=null&&amount!=null&&Math.abs(razem-amount)>0.004)flags.push({k:'b',t:`Сума ${fmt(amount)} ≠ RAZEM ${fmt(razem)}`});
-  else if(razem!=null)flags.push({k:'ok',t:'Сума = RAZEM'});
+  const dopInList=!!(dop&&listNorm.includes(dop));
+  const dopSim=dopInList?nameSim(rawNorm,dop):0;
+  const mRaw=bestMatch(rawNorm);
+  if(dopInList&&dopSim>=0.55){
+    name=dop;
+    flags.push(rawNorm===name?{k:'ok',t:'Є в списку'}:{k:'ok',t:'Виправлено за списком (на бланку: '+raw+')'});
+  }else if(mRaw&&mRaw.s>=0.8){
+    name=norm(mRaw.name);
+    flags.push(rawNorm===name?{k:'ok',t:'Є в списку'}:{k:'ok',t:'Виправлено за списком (на бланку: '+raw+')'});
+  }else if(dopInList&&(!rawNorm||hasTokenMatch(rawNorm,dop))){
+    name=dop;
+    flags.push({k:'w',t:'Перевірте ім\'я (на бланку: '+(raw||'не розпізнано')+')'});
+  }else if(state.employees.length){
+    flags.push({k:'w',t:dopInList?`Немає в списку (модель припустила: ${dop})`:'Немає в списку працівників'});
+  }
+  let amount=parseNum(f.kwota_zl);
+  if(amount!==null&&amount<=0)amount=null;
+  const razem=parseNum(f.razem);
+  if(amount===null&&razem!==null&&razem>0)amount=razem;
+  if(razem!==null&&amount!==null&&Math.abs(razem-amount)>0.004)flags.push({k:'b',t:`Сума ${fmt(amount)} ≠ RAZEM ${fmt(razem)}`});
+  else if(razem!==null&&amount!==null)flags.push({k:'ok',t:'Сума = RAZEM'});
   if(f.pewnosc&&f.pewnosc!=='wysoka')flags.push({k:'w',t:f.pewnosc==='niska'?'Погано читається, перевірте':'Перевірте уважніше'});
   if(f.uwagi)flags.push({k:'w',t:f.uwagi});
   if(f.za_co)flags.push({k:'ok',t:'za co: '+f.za_co});
@@ -439,16 +595,18 @@ function onPhotos(e){
   for(const file of files){
     const p={id:++pid,file,url:URL.createObjectURL(file),status:'work',flags:[]};
     pending.push(p);
-    queue=queue.then(()=>recognize(p));
+    queue=queue.then(()=>recognize(p)).catch(()=>{});
   }
   render();
 }
 $('#photo').addEventListener('change',onPhotos);
 $('#photo2').addEventListener('change',onPhotos);
 $('#setSave').onclick=()=>{
-  settings.key=$('#apiKey').value.trim();settings.model=$('#model').value.trim()||DEFAULT_MODEL;
+  settings.key=$('#apiKey').value.trim();settings.model=$('#model').value.trim()||DEFAULT_MODEL;settings.savePhotos=$('#savePhotosSet').checked;
   lsSet('kw_settings',settings);$('#noAi').hidden=!!settings.key;toast(settings.key?'Налаштування збережено':'Ключ видалено');
 };
+$('#savePhotosSet').onchange=e=>{settings.savePhotos=e.target.checked;lsSet('kw_settings',settings)};
+$('#pdfSearch').addEventListener('input',()=>{showAllArchives=false;renderArchives()});
 $('#setTest').onclick=async()=>{
   const b=$('#setTest');settings.key=$('#apiKey').value.trim();settings.model=$('#model').value.trim()||DEFAULT_MODEL;
   b.disabled=true;b.textContent='Перевіряю…';
@@ -456,40 +614,260 @@ $('#setTest').onclick=async()=>{
   catch(e){toast(e.userMsg||e.message)}
   b.disabled=false;b.textContent='Перевірити ключ';
 };
+let confirmAction=null;
+function askConfirm(text,yesLabel,fn){
+  confirmAction=fn;
+  $('#clearText').textContent=text;
+  $('#cYes').textContent=yesLabel;
+  $('#clearConfirm').hidden=false;
+  $('#cNo').focus();
+}
 $('#addManual').onclick=()=>{pending.unshift({id:++pid,url:'',status:'done',name:'',amount:'',date:today(),flags:[{k:'w',t:'Введено вручну'}]});render();$('#reviewSec').scrollIntoView({behavior:'smooth'})};
-$('#tbody').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;const i=+b.dataset.del;const r=state.rows[i];state.rows.splice(i,1);deletePhotos(r.photos||[]);saveRows();render();toast('Видалено: '+r.name)});
+$('#tbody').addEventListener('click',e=>{
+  const b=e.target.closest('[data-del]');if(!b)return;
+  const r=state.rows[+b.dataset.del];if(!r)return;
+  const rid=r.rid;
+  askConfirm(`Видалити рядок ${r.name} (${fmt(r.amount)})?`,'Так, видалити',()=>{
+    const idx=state.rows.findIndex(x=>x.rid===rid);if(idx<0)return;
+    const del=state.rows.splice(idx,1)[0];
+    pending.filter(p=>p.isEdit&&p.editRid===rid).forEach(removePending);
+    deletePhotos(del.photos||[]);saveRows();render();toast('Видалено: '+del.name);
+  });
+});
 $('#withDate').onchange=e=>{state.withDate=e.target.checked;saveRows();render()};
 $('#empSave').onclick=()=>{state.employees=[...new Set($('#empText').value.split('\n').map(norm).filter(Boolean))];saveEmployees();render();updateDatalist();toast('Список збережено')};
 $('#clearBtn').onclick=()=>{
   if(!state.rows.length&&!pending.length){toast('Таблиця вже порожня');return}
   const n=state.rows.length,k=pending.length;
-  $('#clearText').textContent=`Видалити всі рядки таблиці (${n})`+(k?` і неперевірені бланки (${k})`:'')+'?';
-  $('#clearConfirm').hidden=false;$('#cNo').focus();
+  askConfirm(`Видалити всі рядки таблиці (${n})`+(k?` і неперевірені бланки (${k})`:'')+'?','Так, вичистити',()=>{
+    const urls=new Set();
+    pending.splice(0).forEach(p=>{if(p.url&&p.url.startsWith('blob:'))urls.add(p.url)});
+    urls.forEach(u=>URL.revokeObjectURL(u));
+    state.rows=[];clearPhotos();saveRows();render();toast('Таблицю вичищено');
+  });
 };
-$('#cNo').onclick=()=>{$('#clearConfirm').hidden=true};
-$('#cYes').onclick=()=>{
-  state.rows=[];pending.splice(0).forEach(p=>{if(p.url&&p.url.startsWith('blob:'))URL.revokeObjectURL(p.url)});clearPhotos();
-  saveRows();render();$('#clearConfirm').hidden=true;toast('Таблицю вичищено');
-};
+$('#cNo').onclick=()=>{confirmAction=null;$('#clearConfirm').hidden=true};
+$('#cYes').onclick=()=>{const fn=confirmAction;confirmAction=null;$('#clearConfirm').hidden=true;if(fn)fn()};
 function updateDatalist(){let dl=$('#emps');if(!dl){dl=document.createElement('datalist');dl.id='emps';document.body.appendChild(dl)}dl.innerHTML=state.employees.map(e=>`<option value="${esc(e)}">`).join('')}
 
-// ---------- photos (IndexedDB) ----------
+// ---------- photos & PDF archive (IndexedDB) ----------
 let idbP=null;
 function idb(){
-  if(!idbP)idbP=new Promise((ok,no)=>{const r=indexedDB.open('skaner-kw',1);r.onupgradeneeded=()=>r.result.createObjectStore('photos');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+  if(!idbP)idbP=new Promise((ok,no)=>{
+    const r=indexedDB.open('skaner-kw',2);
+    r.onupgradeneeded=()=>{
+      const d=r.result;
+      if(!d.objectStoreNames.contains('photos'))d.createObjectStore('photos');
+      if(!d.objectStoreNames.contains('archive_meta'))d.createObjectStore('archive_meta',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('archive_blobs'))d.createObjectStore('archive_blobs');
+    };
+    r.onsuccess=()=>ok(r.result);
+    r.onerror=()=>{idbP=null;no(r.error)};
+    r.onblocked=()=>{idbP=null;no(new Error('База даних заблокована іншою вкладкою'))};
+  });
   return idbP;
 }
-async function tx(mode,fn){const d=await idb();return new Promise((ok,no)=>{const t=d.transaction('photos',mode);const s=t.objectStore('photos');const r=fn(s);t.oncomplete=()=>ok(r&&r.result);t.onerror=()=>no(t.error)})}
+async function tx(mode,fn,store='photos'){
+  const d=await idb();
+  return new Promise((ok,no)=>{
+    const t=d.transaction(store,mode);
+    const r=fn(Array.isArray(store)?store.map(n=>t.objectStore(n)):t.objectStore(store));
+    t.oncomplete=()=>ok(r&&r.result);
+    t.onerror=()=>no(t.error);
+    t.onabort=()=>no(t.error||new Error('Транзакцію скасовано'));
+  });
+}
 async function savePhoto(file){
   const blob=await new Promise((ok,no)=>{const url=URL.createObjectURL(file);const img=new Image();
-    img.onload=()=>{const k=Math.min(1,1600/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);c.toBlob(b=>b?ok(b):no(new Error('jpeg')),'image/jpeg',0.8)};
+    img.onload=()=>{const k=Math.min(1,1600/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);c.toBlob(b=>b?ok(b):no(new Error('jpeg')),'image/jpeg',0.85)};
     img.onerror=()=>{URL.revokeObjectURL(url);no(new Error('фото не відкривається'))};img.src=url});
-  const id='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-  await tx('readwrite',s=>s.put(blob,id));return id;
+  const id=mkId('p');
+  await tx('readwrite',s=>s.put(blob,id));
+  return {id,blob};
 }
 const getPhoto=id=>tx('readonly',s=>s.get(id)).catch(()=>null);
 function deletePhotos(list){if(list&&list.length)tx('readwrite',s=>{list.forEach(ph=>s.delete(ph.id))}).catch(()=>{})}
 function clearPhotos(){tx('readwrite',s=>s.clear()).catch(()=>{})}
+
+async function loadArchives(){
+  const list=await tx('readonly',s=>s.getAll(),'archive_meta').catch(()=>[]);
+  archives=(list||[]).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  renderArchives();
+}
+async function saveArchive(meta,pdfBlob,photoBlobs){
+  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+  await tx('readwrite',([ms,bs])=>{
+    ms.put(meta);
+    bs.put(pdfBlob,meta.id);
+    photoBlobs.forEach(ph=>bs.put(ph.blob,ph.id));
+  },['archive_meta','archive_blobs']);
+  archives.unshift(meta);
+  renderArchives();
+}
+const getArchiveBlob=id=>tx('readonly',s=>s.get(id),'archive_blobs').catch(()=>null);
+async function deleteArchive(arc){
+  const ids=[arc.id];
+  (arc.entries||[]).forEach(e=>(e.photoIds||[]).forEach(id=>ids.push(id)));
+  await tx('readwrite',([ms,bs])=>{
+    ms.delete(arc.id);
+    ids.forEach(id=>bs.delete(id));
+  },['archive_meta','archive_blobs']);
+  archives=archives.filter(a=>a.id!==arc.id);
+  renderArchives();
+}
+function fmtDate(d){return d?d.split('-').reverse().join('.'):''}
+function fmtPages(pages){
+  if(!pages||!pages.length)return '';
+  if(pages.length===1)return 'стор. '+pages[0];
+  const min=pages[0],max=pages[pages.length-1];
+  return (max-min+1===pages.length)?`стор. ${min}–${max}`:'стор. '+pages.join(', ');
+}
+function fmtCreated(ts){
+  if(!ts)return '';
+  const d=new Date(ts);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function matchArchiveEntry(entry,arc,tokens,rawQ){
+  const hay=norm(entry.name);
+  if(tokens.length&&tokens.every(t=>hay.includes(t)))return true;
+  if(rawQ&&(arc.filename.toLowerCase().includes(rawQ)||fmtDate(arc.date).includes(rawQ)||(arc.date||'').includes(rawQ)))return true;
+  return false;
+}
+function renderArchives(){
+  const listEl=$('#archList'),emptyEl=$('#archEmpty'),cntEl=$('#archCount');
+  cntEl.textContent=archives.length;
+  listEl.innerHTML='';
+  const rawQ=($('#pdfSearch').value||'').trim().toLowerCase();
+  const tokens=norm(rawQ).split(' ').filter(Boolean);
+  if(!archives.length){
+    emptyEl.hidden=false;
+    emptyEl.textContent='Архів порожній. Після натискання «Завантажити Excel + PDF» файл автоматично збережеться тут і не зникне після «Вичистити».';
+    return;
+  }
+  if(rawQ){
+    const matches=[];
+    archives.forEach(arc=>{
+      (arc.entries||[]).forEach(e=>{
+        if(matchArchiveEntry(e,arc,tokens,rawQ))matches.push({arc,e});
+      });
+    });
+    if(!matches.length){
+      emptyEl.hidden=false;
+      emptyEl.textContent='Нічого не знайдено за запитом «'+$('#pdfSearch').value.trim()+'».';
+      return;
+    }
+    emptyEl.hidden=true;
+    matches.forEach(({arc,e})=>{
+      const el=document.createElement('div');el.className='architem';
+      const pInfo=[arc.filename,fmtDate(arc.date),fmtPages(e.pages)].filter(Boolean).join(' · ');
+      el.innerHTML=`<div class="archtop">
+        <div><div class="archtitle">${esc(e.name)}${(e.count||1)>1?` <span class="chip kw">${e.count} KW</span>`:''}</div><div class="archmeta">${esc(pInfo)}</div></div>
+        <div class="archtitle" style="white-space:nowrap">${esc(fmt(e.amount))}</div>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary" data-aa="person">PDF особи</button>
+        <button type="button" data-aa="full">Весь PDF</button>
+        ${(e.photoIds&&e.photoIds.length)?'<button type="button" data-aa="photos">Фото ('+e.photoIds.length+')</button>':''}
+      </div>`;
+      el.addEventListener('click',ev=>{
+        const a=ev.target.closest('[data-aa]')?.dataset.aa;if(!a)return;
+        const btn=ev.target.closest('[data-aa]');
+        if(a==='person')downloadPersonPdf(arc,e,btn);
+        else if(a==='full')downloadFullPdf(arc,btn);
+        else if(a==='photos')viewArchivePhotos(arc,e);
+      });
+      listEl.appendChild(el);
+    });
+    return;
+  }
+  emptyEl.hidden=true;
+  const visible=showAllArchives?archives:archives.slice(0,5);
+  visible.forEach(arc=>{
+    const el=document.createElement('div');el.className='architem';
+    const names=(arc.entries||[]).map(e=>e.name).join(', ');
+    const meta=[fmtDate(arc.date)+(arc.createdAt?' '+fmtCreated(arc.createdAt):''),`${(arc.entries||[]).length} осіб`,`${arc.pageCount||0} стор.`,fmt(arc.totalAmount)].filter(Boolean).join(' · ');
+    el.innerHTML=`<div class="archtop">
+      <div><div class="archtitle">${esc(arc.filename)}</div><div class="archmeta">${esc(meta)}</div></div>
+      <button type="button" class="ghost" aria-label="Видалити з архіву" data-aa="del">✕</button>
+    </div>
+    ${names?`<div class="archmeta">${esc(names)}</div>`:''}
+    <div class="actions"><button type="button" class="primary" data-aa="full">Завантажити PDF</button></div>`;
+    el.addEventListener('click',ev=>{
+      const a=ev.target.closest('[data-aa]')?.dataset.aa;if(!a)return;
+      const btn=ev.target.closest('[data-aa]');
+      if(a==='full')downloadFullPdf(arc,btn);
+      else if(a==='del')askConfirm(`Видалити ${arc.filename} з архіву?`,'Так, видалити',()=>{deleteArchive(arc).then(()=>toast('Видалено з архіву')).catch(err=>toast('Помилка: '+(err.message||err)))});
+    });
+    listEl.appendChild(el);
+  });
+  if(!showAllArchives&&archives.length>5){
+    const more=document.createElement('button');more.type='button';more.textContent=`Показати всі (${archives.length})`;
+    more.onclick=()=>{showAllArchives=true;renderArchives()};
+    listEl.appendChild(more);
+  }
+}
+async function deliverFile(file){
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(isIOS&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file]})}catch(e){if(e.name!=='AbortError')toast('Не вдалося поділитися: '+e.message)}
+  }else{
+    saveFile(file);
+  }
+}
+async function downloadFullPdf(arc,btn){
+  if(btn)btn.disabled=true;
+  try{
+    const blob=await getArchiveBlob(arc.id);
+    if(!blob){toast('Файл PDF не знайдено в архіві');return}
+    await deliverFile(new File([blob],arc.filename,{type:'application/pdf'}));
+    toast('Завантажено: '+arc.filename);
+  }catch(e){toast('Помилка: '+(e.message||e))}
+  finally{if(btn)btn.disabled=false}
+}
+async function downloadPersonPdf(arc,entry,btn){
+  if(btn){btn.disabled=true;btn.textContent='Готую…'}
+  try{
+    const ids=entry.photoIds||[];
+    const pages=[];
+    for(let i=0;i<ids.length;i++){
+      const blob=await getArchiveBlob(ids[i]);
+      if(blob)pages.push({name:entry.name,date:(entry.photoDates&&entry.photoDates[i])||entry.date||arc.date||'',k:i,n:ids.length,blob});
+    }
+    if(!pages.length){toast('Фото для цієї особи не знайдено');return}
+    const pdf=await makePdfBlob(pages);
+    if(!pdf){toast('Не вдалося створити PDF');return}
+    const fname=`KW_${slugName(entry.name)}_${arc.date||today()}.pdf`;
+    await deliverFile(new File([pdf],fname,{type:'application/pdf'}));
+    toast('Завантажено: '+fname);
+  }catch(e){toast('Помилка: '+(e.message||e))}
+  finally{if(btn){btn.disabled=false;btn.textContent='PDF особи'}}
+}
+async function viewArchivePhotos(arc,entry){
+  const ids=entry.photoIds||[];
+  const urls=[];
+  for(let i=0;i<ids.length;i++){
+    const blob=await getArchiveBlob(ids[i]);
+    if(blob)urls.push({url:URL.createObjectURL(blob),date:(entry.photoDates&&entry.photoDates[i])||entry.date||arc.date||''});
+  }
+  if(!urls.length){toast('Фото не знайдено');return}
+  const z=document.createElement('div');z.className='zoom multi';
+  const bar=document.createElement('div');bar.className='zbar';
+  bar.innerHTML=`<span>${esc(entry.name)} · ${esc(fmt(entry.amount))}</span><button type="button" data-z="close">Закрити</button>`;
+  const list=document.createElement('div');list.className='zlist';
+  urls.forEach((it,i)=>{
+    const item=document.createElement('div');item.className='zitem';
+    const im=document.createElement('img');im.src=it.url;im.alt='Фото бланка';
+    const fname=`KW_${slugName(entry.name)}_${it.date||today()}${urls.length>1?'_'+(i+1):''}.jpg`;
+    const btn=document.createElement('button');btn.type='button';btn.textContent=`Зберегти фото ${urls.length>1?(i+1)+'/'+urls.length:''} на телефон`.trim();
+    btn.onclick=ev=>{ev.stopPropagation();const lnk=document.createElement('a');lnk.href=it.url;lnk.download=fname;document.body.appendChild(lnk);lnk.click();lnk.remove();toast('Фото збережено')};
+    item.append(im,btn);list.appendChild(item);
+  });
+  z.append(bar,list);
+  const close=()=>{urls.forEach(it=>URL.revokeObjectURL(it.url));z.remove();document.removeEventListener('keydown',onKey)};
+  const onKey=e=>{if(e.key==='Escape')close()};
+  z.onclick=ev=>{if(ev.target===z||ev.target.closest('[data-z="close"]'))close()};
+  document.addEventListener('keydown',onKey);document.body.appendChild(z);
+}
 
 // ---------- PDF ----------
 function loadPdfLib(){
@@ -498,27 +876,48 @@ function loadPdfLib(){
 }
 const blobToDataURL=b=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>no(r.error);r.readAsDataURL(b)});
 const imgSize=url=>new Promise(ok=>{const i=new Image();i.onload=()=>ok([i.naturalWidth,i.naturalHeight]);i.onerror=()=>ok([1,1]);i.src=url});
-// One page per KW photo, in table order, captioned with name, date and KW number.
-async function buildPdf(){
-  const items=[];
-  state.rows.forEach(r=>(r.photos||[]).forEach((ph,k,arr)=>items.push({r,ph,k,n:arr.length})));
-  if(!items.length)return null;
+async function makePdfBlob(pages){
+  if(!pages.length)return null;
   await loadPdfLib();
   const {jsPDF}=window.jspdf;let doc=null;
-  for(const it of items){
-    const blob=await getPhoto(it.ph.id);if(!blob)continue;
-    const url=await blobToDataURL(blob);const [w,hh]=await imgSize(url);
+  for(const it of pages){
+    const url=await blobToDataURL(it.blob);const [w,hh]=await imgSize(url);
     const orient=w>hh?'l':'p';
     if(!doc)doc=new jsPDF({orientation:orient,unit:'mm',format:'a4',compress:true});else doc.addPage('a4',orient);
     const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),m=10,top=18;
-    const d=(it.ph.date||it.r.date||'').split('-').reverse().join('.');
-    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(it.r.name,m,12);
+    const d=(it.date||'').split('-').reverse().join('.');
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(it.name,m,12);
     doc.setFont('helvetica','normal');doc.setFontSize(10);
     doc.text([d,it.n>1?`KW ${it.k+1}/${it.n}`:''].filter(Boolean).join('   '),W-m,12,{align:'right'});
     const k=Math.min((W-2*m)/w,(H-top-m)/hh);const iw=w*k,ih=hh*k;
     doc.addImage(url,'JPEG',(W-iw)/2,top,iw,ih);
   }
   return doc?new Blob([doc.output('arraybuffer')],{type:'application/pdf'}):null;
+}
+// One page per KW photo, in table order, captioned with name, date and KW number.
+async function buildPdf(){
+  const pages=[];
+  const entries=[];
+  const archivedPhotos=[];
+  let pageNum=0;
+  for(const r of state.rows){
+    const phs=r.photos||[];
+    const pNums=[],pIds=[],pDates=[];
+    for(let k=0;k<phs.length;k++){
+      const blob=await getPhoto(phs[k].id);if(!blob)continue;
+      const dt=phs[k].date||r.date||'';
+      pages.push({name:r.name,date:dt,k,n:phs.length,blob});
+      pageNum++;pNums.push(pageNum);
+      const aid=mkId('ap');
+      archivedPhotos.push({id:aid,blob});
+      pIds.push(aid);pDates.push(dt);
+    }
+    if(pNums.length){
+      entries.push({name:r.name,amount:r.amount,date:r.date||'',count:r.count||1,pages:pNums,photoIds:pIds,photoDates:pDates});
+    }
+  }
+  const blob=await makePdfBlob(pages);
+  return blob?{blob,pageCount:pageNum,entries,archivedPhotos}:null;
 }
 
 // ---------- Excel ----------
@@ -537,14 +936,14 @@ async function buildXlsx(){
   hr.eachCell((c,i)=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:blue}};c.alignment={horizontal:i===1?'left':'right'}});
   const kcol=wd?'C':'B';
   state.rows.forEach((r,i)=>{
-    const vals=wd?[r.name,r.date?new Date(r.date+'T00:00:00'):null,r.amount]:[r.name,r.amount];
+    const vals=wd?[r.name,r.date?new Date(r.date+'T00:00:00Z'):null,r.amount]:[r.name,r.amount];
     const row=ws.addRow(vals);
     row.eachCell({includeEmpty:true},c=>{if(i%2===0)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:band}};c.border={top:border,bottom:border}});
     row.getCell(kcol).numFmt='#,##0.00 "zł"';
     if(wd)row.getCell('B').numFmt='dd.mm.yyyy';
   });
   const last=state.rows.length+1;
-  const total=state.rows.reduce((a,r)=>a+r.amount,0);
+  const total=Math.round(state.rows.reduce((a,r)=>a+(Number(r.amount)||0),0)*100)/100;
   const tr=ws.addRow(wd?['',null,{formula:`SUM(C2:C${last})`,result:total}]:['',{formula:`SUM(B2:B${last})`,result:total}]);
   tr.eachCell({includeEmpty:true},c=>{c.border={top:{style:'double',color:{argb:blue}}}});
   const tc=tr.getCell(kcol); tc.font={bold:true}; tc.numFmt='#,##0.00 "zł"';
@@ -552,7 +951,7 @@ async function buildXlsx(){
 }
 function saveFile(file){
   const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;document.body.appendChild(a);a.click();
-  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},5000);
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},10000);
 }
 $('#exportBtn').onclick=async()=>{
   if(!state.rows.length){toast('Таблиця порожня');return}
@@ -560,8 +959,16 @@ $('#exportBtn').onclick=async()=>{
   try{
     const d=(state.rows.find(r=>r.date)?.date)||today();
     const files=[new File([await buildXlsx()],`wyplaty_${d}.xlsx`,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})];
-    const pdf=await buildPdf();
-    if(pdf)files.push(new File([pdf],`KW_${d}.pdf`,{type:'application/pdf'}));
+    const pdfRes=await buildPdf();
+    if(pdfRes){
+      const pdfName=`KW_${d}.pdf`;
+      files.push(new File([pdfRes.blob],pdfName,{type:'application/pdf'}));
+      const totalAmount=Math.round(state.rows.reduce((a,r)=>a+(Number(r.amount)||0),0)*100)/100;
+      await saveArchive({
+        id:mkId('arc'),filename:pdfName,date:d,createdAt:Date.now(),
+        totalAmount,pageCount:pdfRes.pageCount,entries:pdfRes.entries
+      },pdfRes.blob,pdfRes.archivedPhotos).catch(()=>toast('Не вдалося зберегти PDF в архів (перевірте пам\'ять)'));
+    }
     const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
     if(isIOS&&navigator.canShare&&navigator.canShare({files})){
       // iPhone: the share sheet saves both files to Files at once.
@@ -569,7 +976,7 @@ $('#exportBtn').onclick=async()=>{
     }else{
       saveFile(files[0]);
       if(files[1])await new Promise(r=>setTimeout(()=>{saveFile(files[1]);r()},700));
-      toast(files.length>1?'Завантажено Excel і PDF':'Завантажено Excel (фото бланків немає, тому без PDF)');
+      toast(files.length>1?'Завантажено Excel і PDF (додано в архів)':'Завантажено Excel (фото бланків немає, тому без PDF)');
     }
   }catch(e){toast('Помилка: '+(e.message||e))}
   btn.disabled=false;btn.textContent='Завантажити Excel + PDF';
@@ -588,10 +995,10 @@ themeBtn.onclick=()=>setTheme(!isDark());
 const lr=lsGet('kw_rows'); if(lr){state.rows=lr.rows||[];state.withDate=!!lr.withDate;mergeDuplicates()}
 const le=lsGet('kw_emp'); state.employees=Array.isArray(le)?le:DEFAULT_EMPLOYEES.slice();
 Object.assign(settings,lsGet('kw_settings')||{});
-$('#apiKey').value=settings.key;$('#model').value=settings.model;
+$('#apiKey').value=settings.key;$('#model').value=settings.model;$('#savePhotosSet').checked=settings.savePhotos!==false;
 $('#noAi').hidden=!!settings.key;
-render();updateDatalist();
-if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+render();updateDatalist();loadArchives();
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>
 </body>
